@@ -1,0 +1,112 @@
+---
+layout: archive
+title: "动态规划--字符串问题"
+date: 2017-07-10 22:00
+categories: algorithm
+tag: dp
+---
+
+## 动态规划中字符串问题
+* 求两个字符串的最长公共子序列
+* 求两个字符串的最长公共子串
+
+### 最长公共子序列
+粘贴下wiki: 最长公共子序列（LCS）是一个在一个序列集合中（通常为两个序列）用来查找所有序列中最长子序列(wiki: 子序列是从最初序列通过去除某些元素但不破坏余下元素的相对位置（在前或在后）而形成的新序列)。<br>
+动态规划求解，首先找出状态转移方程：<br>
+假设：  
+X：序列集合，x1, x2, x3, x4,......xn;<br>
+X'：序列集合，x1, x2, x3, x4,.....x(n-1)<br>
+Y：序列集合，y1, y2, y3, y4,......ym;<br>
+Y'：序列集合，y1, y2, y3, y4,......y(m-1);<br>
+F(X, Y):序列集合X和Y的最长公共字串, 对于任意的两个字符串：<br>
+F(X, Y) =  Max(F(X', Y), F(X,Y'))  while xn != ym  
+F(X, Y) =  F(X', Y') + 1           while xn == ym   
+F(X, Y) =  0                       while n ==0 || m == 0    
+
+简单的来说就是比较连个字符串的最后一个字符，相等则lcs为除去最后一个字符后的两个字符串的lcs+1, 否则取最打的那个lcs<br>
+代码如下：<br>
+
+```
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+
+#include <iostream>
+#include <string>
+
+int main(int argc, char** argv) {
+    if (argc < 3) {
+        return -1;
+    }
+    std::string str1(argv[1]);
+    std::string str2(argv[2]);
+    size_t n = str1.size(), m = str2.size();
+    int **result = new int*[n+1];
+    for (size_t i = 0; i <= n; ++i) {
+        result[i] = new int[m+1];
+        memset(result[i], 0, sizeof(int)*(m+1));
+    }
+    for (uint32_t i = 1; i <= n; ++i) {
+        for (uint32_t j = 1; j <= m; ++j) {
+            if (str1[i] == str2[j]) {
+                result[i][j] = result[i-1][j-1] + 1;
+            } else {
+                result[i][j] = result[i-1][j] > result[i][j-1] ? result[i-1][j] : result[i][j-1];
+            }
+        } 
+    }
+    std::cout << " lcs = " << result[n][m] << std::endl;
+    for (uint32_t i = 0; i <=n; ++i) {
+        delete [] result[i];    
+    }
+    delete [] result;
+    return 0;
+}
+
+```
+
+### 最长公共子串
+最长公共子串和最长公共子序列的思路差不多，唯一的区别是，字符串是连续的，所以对于任意两个字符串来说：  
+F(X, Y) =  0  while xn != ym   
+F(X, Y) =  F(X', Y') + 1           while xn == ym   
+代码实现下：  
+```
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+
+#include <iostream>
+#include <string>
+
+int main(int argc, char** argv) {
+    if (argc < 3) {
+        return -1;
+    }
+    std::string str1(argv[1]);
+    std::string str2(argv[2]);
+    size_t n = str1.size(), m = str2.size();
+    int **result = new int*[n+1];
+    for (size_t i = 0; i <= n; ++i) {
+        result[i] = new int[m+1];
+        memset(result[i], 0, sizeof(int)*(m+1));
+    }
+    int max_len = 0;
+    for (uint32_t i = 1; i <= n; ++i) {
+        for (uint32_t j = 1; j <= m; ++j) {
+            if (str1[i] == str2[j]) {
+                result[i][j] = result[i-1][j-1] + 1;
+                max_len = max_len > result[i][j] ? max_len : result[i][j];
+            } 
+        }
+    }
+    std::cout << " max_len = " << max_len << std::endl;
+    for (uint32_t i = 0; i <=n; ++i) {
+        delete [] result[i];    
+    }
+    delete [] result;
+    return 0;
+}
+
+```

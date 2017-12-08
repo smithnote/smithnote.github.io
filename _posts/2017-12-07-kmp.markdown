@@ -1,0 +1,102 @@
+---
+layout: archive
+title: "KMP 字符串匹配笔记"
+date: 2017-12-07 17:00
+categories: algorithm
+tag: KMP
+---
+## KMP 字符串匹配笔记
+***
+
+### 原始字符串匹配
+
+关于字符串匹配的算法，一种是简单粗暴的匹配法，基本的思路是将子窜和目标字符串逐一比较，直至匹配到子串末尾。若中途匹配失败，将开头的比较位置后移一位，从头开始比较。该方法优点是简单容易理解
+具体的实现代码如下
+```
+def find_substr(allstr, substr):
+    result = []
+    pre_table = get_pretable(substr);
+    s_index = 0;
+    while s_index < len(allstr) - len(substr) + 1:
+        for j in range(len(substr)):
+            if substr[j] != allstr[s_index + j]:
+                s_index += 1
+                break
+            if j == len(substr) -1:
+                result.append(s_index);
+                s_index += 1
+    return result
+```
+***
+### KMP字符串匹配
+ 相比与上一种方法，KMP算法利用了已经比较了的字符的信息，让下一次重新比较的时候尽可能往后移更多的位数而不是仅仅移动一位，算法的描述详解还是阮一峰老师的《[字符串匹配的KMP算法](http://www.ruanyifeng.com/blog/2013/05/Knuth%E2%80%93Morris%E2%80%93Pratt_algorithm.html)》博客最为清楚，
+ 我这里就简单的说一下: 先预处理子串，保存相应的信息，而后在比较的过程中利用这些信息来选择后移的位数， 移动位数 = 已匹配的字符数 - 对应的部分匹配值。 判定了后移位数后其他的就简单了，所以重点是预处理字串，这里详细说一下：
+ 我先搬下阮一峰老师的概念和例子：  
+ "前缀"和"后缀"。 "前缀"指除了最后一个字符以外，一个字符串的全部头部组合；"后缀"指除了第一个字符以外，一个字符串的全部尾部组合
+ "部分匹配值"就是"前缀"和"后缀"的最长的共有元素的长度。以"ABCDABD"为例，
+
+* "A"的前缀和后缀都为空集，共有元素的长度为0；
+* "AB"的前缀为[A]，后缀为[B]，共有元素的长度为0；
+* "ABC"的前缀为[A, AB]，后缀为[BC, C]，共有元素的长度0；
+* "ABCD"的前缀为[A, AB, ABC]，后缀为[BCD, CD, D]，共有元素的长度为0；
+* "ABCDA"的前缀为[A, AB, ABC, ABCD]，后缀为[BCDA, CDA, DA, A]，共有元素为"A"，长度为1；
+* "ABCDAB"的前缀为[A, AB, ABC, ABCD, ABCDA]，后缀为[BCDAB, CDAB, DAB, AB, B]，共有元素为"AB"，长度为2；
+* "ABCDABD"的前缀为[A, AB, ABC, ABCD, ABCDA, ABCDAB]，后缀为[BCDABD, CDABD, DABD, ABD, BD, D]，共有元素的长度为0。
+
+所以字符 “ABCDABD”  预处理结果是[0, 0, 0, 0, 1, 2, 0]
+
+如何有效的计算这个预处理呢？  
+我们首先要知道预处理值是为了只要子串中以首字符开始的子串有可以偏移若干位便重合的子串，看着有点糊涂，举例来说，子串“ABCDABD”中存在子串"A"偏移4位便可以重合，存在子串“AB” 偏移4位也可以重合。然后我们就可以放心的在比较过程中移动超过一位的数了。  
+假设F(n)为预处理结果后第n个字符所对应的值, 例如 “ABCDAB”中 F(4) == 1, F(5)==2 (n从0开始计数)
+假设S(n)为子串中第n个字符，例如 “ABCDAB”中 F(4) == 'A', F(5)=='B' (n从0开始计数)
+我们知道在长度为n的字符串中, 
+* 最后一个字符的要和字符串的首个字符比较是否是从这开始(F(n) = 1)
+* 要判断是否是n-1长的子串的延续( F(n) = F(n-1) + 1)
+
+
+所以我们可以得出：
+F(n) = MAX[ F(n-1) + 1, 1, 0]
+代码如下：
+
+```
+import random
+
+def get_pretable(string):
+    ''' 预处理子串 '''
+    f_index = 0
+    l_index = 0;
+    result = [0 for i in range(len(string))]
+    for i in range(1,len(string)):
+        a = b = 0
+        if string[0] == string[i]:
+            a = 1;
+        if string[result[i-1]] == string[i]:
+            b = result[i-1] + 1
+        result[i] = max(a, b)
+    return result
+
+def find_substr(allstr, substr):
+    result = []
+    pre_table = get_pretable(substr);
+    s_index = 0;
+    while s_index < len(allstr) - len(substr) + 1:
+        for j in range(len(substr)):
+            if substr[j] != allstr[s_index + j]:
+                step = (j - pre_table[j-1]) if j > 0 else 1
+                s_index += step
+                break
+            if j == len(substr) -1:
+                result.append(s_index);
+                s_index += 1
+    return result
+
+if __name__ == '__main__':
+    substr = "abcdab"
+    allstr = "abcdcdabcdababcdab"
+    indexs = find_substr(allstr, substr)
+    if indexs:
+        print("found substring at %s" % ' '.join([str(i) for i in indexs]))
+    else:
+        print("not found substring")
+```
+

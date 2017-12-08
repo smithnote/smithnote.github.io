@@ -1,0 +1,125 @@
+---
+layout: archive
+title: "thrift整理"
+date: 2017-07-10 22:00
+categories: Programming
+tag: thrift
+---
+
+## 整理下thrift的分析
+### Part 1 安装
+官网下载地址：<https://thrift.apache.org/download>
+
+### Part 2 编写IDL
+<https://git-wip-us.apache.org/repos/asf?p=thrift.git;a=blob_plain;f=tutorial/tutorial.thrift>
+
+### Part 3 源码分析
+源码总共分为五个部分：  
+* Transport：主要封装socket底层，什么read write connect close listen accept 等，主要负责数据交换  
+主要分为两类：  
+客户端类socket封装：TTransport.h 为基础类  
+服务端类socket封装：TServerTransport.h 为基础类  
+
+* Protocol  ：主要负责将数据格式转换  
+以TProtocol.h 为基础类封装一系列格式读写方法
+
+* Process：负责对接受的客户端的请求数据进行出来，判断处理函数，调用相应的函数处理数据
+以TProcess.h  为基础类封装出 TDispatchProcessorT类  
+调用时，TDispatchProcessT根据 TProtocol解析出函数名及其他参数，而调用相应的函数处理  
+相应的函数是指在实际操作中由用户具体定义实现的函数，thrift生成的代码时自动生成函数名与函数指针的map  
+
+* Server：构建服务框架，实现如何接受客户端的请求（循环等待，多线程，线程池，异步处理）  
+以TServer.h 为基础类封装， 公有继承出TServerFramework.h 框架  
+TServerFramework 为基础，拓展出 TSimpleServer, TThreadedServer, TThreadPoolServer  
+TServer 为基础，拓展出 TNonblockingServer  
+1. TSimpleServer：简单直接继承基类的serve()，重写onClientConnected方法直接处理客户请求，即连接一个客户段便处理请求，处理完后再继续等待请求。  
+2. TThreadedServer：对每一个连接，重写onClientConnected 直接 newThread()，默认限制数INT64  
+3. TThreadPoolServer：在TServerFramework的基础上，添加一个线程池管理成员类threadManager，重写onClientConnected方法，直接加入tasks队列。  
+4. TNoblockingServer：<http://yanyiwu.com/work/2014/12/06/thrift-tnonblockingserver-analysis.html>  
+以libevent为基础，libevent用以监测套接字的状态，初始时向libevent注册listenHandler和notifyHandler
+```
+event_set(&serverEvent_,
+          listenSocket_,
+          EV_READ | EV_PERSIST, 
+          TNonblockingIOThread::listenHandler,
+          server_);
+```
+Note:
+TNonblockingIOThread::listenHandler
+当连接到来时，接受连接并将与之相关的TConection 指针通过管道向另一端发送，也就会激发下面的notifyHandler事件
+```
+event_set(&notificationEvent_,
+          getNotificationRecvFD(),//管道的另一端，读取
+          EV_READ|EV_PERSIST,
+          TNonblockingIOThread::notifyHandler,
+          this);
+```
+Note:
+TNonblockingIOThread::notifyHandler //接收到listenHandler发送过来的TConection指针并在随后在TConection指针中fd上设置workSocket事件
+```
+event_set(&event_,
+          tSocket_->getSocketFD(),
+          eventFlags_,
+          TConnection::eventHandler,
+          this)
+```
+Note:
+TConnection::eventHandler
+//根据工作的时候套接字状态，执行相应的动作, 客户端连接过程中socketState和appState状态转换：(直接上图)  
+![](/assets/images/thrift.png 'thrift')
+5. Concurrency：主要实现多线程中的同步，加锁解锁等操作  
+
+#### 阅读中途的一些疑问
+*   Q:TServer 的成员数据为什么是××Factory ?  
+    A:因为每个客户端连接进来，都要为之创建一系列对象，××Factory保存这些对象的初始化参数，直接调用就可以返回相应的对象实例
+
+#### 使用例子
+1. thrift 文件编写
+```
+//命名空间
+namespace cpp SpaceName
+//数据结构
+struct Name {
+    1: required i32 a,       //num : optional/required   type typename;
+    2: optional string b,                               
+}
+enum {
+    Monday: 1,
+    Tuthday: 2,                        
+}
+//rpc服务
+service ServiceName {
+    void Back(1: i32 a, 2: string b),
+}
+```
+2. thrift生成代码： thrift --gen cpp xxx.thrift
+3. 客户端代码编写
+```
+#include <iostream>
+#include <thrift/transport/TSocket.h>
+#include <thrift/transport/TTransportUtils.h>
+#include <thrift/protocol/TBinaryProtocol.h>
+#include "JustTest.h"
+#include "tutorial_types.h"
+using namespace ::apache::thrift;
+using namespace ::apache::thrift::protocol;
+using namespace ::apache::thrift::transport;
+using namespace ::tutorial;
+int main() {
+    boost::shared_ptr<TTransport> socket(new TSocket("localhost", 9090));
+    boost::shared_ptr<TTransport> transport(new TBufferedTransport(socket));
+    boost::shared_ptr<TProtocol> protocol(new TBinaryProtocol(transport));
+    JustTestClient client(protocol);
+    try {
+        transport->open();
+        Work k, res;
+        k.__set_b("hello,world");
+        client.istest(res, k);
+        std::cout << res.a << std::endl;
+        transport->close();
+    } catch(TException& tx) {
+        std::cout << "exception catched\n";
+    }
+    return 0;
+}
+```
