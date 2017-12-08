@@ -1,0 +1,80 @@
+---
+layout: archive
+date: 2017-12-08 15:00
+title: "cmake的简单使用"
+categories: tool
+tag: cmake
+---
+
+## 使用cmake 构建工程
+cmake 作为一款高效的工程构建工具，我以C++工程为例记录完整的过程
+
+### 安装
+本人是debian环境, 所以直接使用apt-get安装
+```
+sudo apt-get install cmake -y
+```
+redhat或centos
+```
+sudo yum install cmake -y
+```
+当然也可以选择源码编译安装，这个就不详细说了
+
+### 编写CMakeLists.txt文件
+在工程目录下编写CMakeLists.txt文$件的话，有许多的规则，这里列出常见的一些规则命令（关键字大小写可以忽略）
+```
+# cmake 以#号作为行注释标志符
+PROJECT(project_name) # 给项目命名，必须
+CMAKE_MINIMUM_REQUIRED(VERSION 2.6) # 要求cmake的版本最低要求
+
+# cmake 有许多内建的变量，比如CMAKE_CXX_COMPILER, CMAKE_CXX_FLAGS等, 使用set 进行设置，当然也可以设置自定义的变量,这里列出一些常见的变量
+SET(CMAKE_CXX_COMPILER "g++") # 设置g++作为c++的编译器
+SET(CMAKE_CXX_FLAGS "-g -std=c++0x -DHAVE_NETINET_IN_H") # 设置编译选项
+SET(CMAKE_VERBOSE_MAKEFILE off) # 设置编译过程中可视化与否 off/on
+
+# c/c++编译的话头文件的目录当然必不可少，include_directories便是用来设置头文件目录的
+include_directories(/project/include/dir1/) 
+include_directories(/project/include/dir2/) 
+include_directories(/project/include/dir3/) 
+# 当然还有链接库目录，link_directories用来实现该功能
+link_directories(/project/lib/dir1/)
+link_directories(/project/lib/dir2/)
+link_directories(/project/lib/dir3/)
+
+# 接下来就是编译了，编译有想编译成链接库的，有编译成可执行文件的
+# add_library用来编译成链接库
+add_library(libname shared file1.cpp file2.cpp file3.cpp) 
+# 其中shared表示编译成动态链接库，可以替换成static,也就会编译成静态链接库了
+# 还有如果要打包的文件过多，我们可以使用 set定义别名，就如
+# set(LIB_FILES file1.cpp file2.cpp file3.cpp)
+# add_library(libname ${LIB_FILES})
+# 对于变量的解引用使用 ${} 符号即可
+# 如果文件更多，多到在同一个目录下面，这时候，就可以使用 aux_source_directory了
+aux_source_directory(/project/src/dir1 DIR_LIB)
+add_library(libname ${DIR_LIB})
+# 这样就能使/project/src/dir1目录下的所有源码文件打包成一个链接库了
+
+# add_executable用来打包成可执行文件
+add_executable(execute_file_name file1.cpp file2.cpp file3.cpp)
+# 如果觉得后面的文件有点多，也可以使用set或aux_source_directory命令简化（同上）
+# 编译成可执行文件少不了要链接其他库，系统库和第三方库和自己编译的库，这时候使用 target_link_libraries
+target_link_libraries(execute_file_name lib1.a lib2 lib3.a lib4)
+# 其中要注意的是，默认链接的库会首选动态链接库，除非自己写明也就是在库名后面加.a（静态）或.so（动态）
+# 还有一点是链接库的顺序要注意，建议越基础的库越往后放置
+
+# 接下来就是安装了，使用install命令
+install(TARGET execute_file_name DESTINATION /release/bin/)
+# 都是使用空格隔开格式, 使用该命令安装可执行文件
+install(FILES /project/include/includefile.h  DESTINATION /release/include/)
+# 使用命令安装链接库的头文件
+```
+如此就是一个简单的使用cmake构建工程的过程，当然更多的命令使用还是建议查看官方文档，或者
+执行 cmake --help-full > cmake_help.txt && vim cmake_help.txt 查看全部的命令使用
+
+## 执行编译
+编写完CMakeLists.txt文件后，就是执行编译的过程了，执行命令
+```
+cmake . 
+```
+这里是简单的使用”.“来代替当前目录，当然你也可以 mkdir build && cd build && cmake ../ 来执行cmake生成正常的Makefile文件，成功执行cmake后会有多个相关的文件和目录产生，其中就有Makefile, 接着就可以执行 make 编译源码了, 若写了CMakeLists.txt中写有install命令还可执行make install 安装文件到相应的目录  
+至此，整个过程结束
