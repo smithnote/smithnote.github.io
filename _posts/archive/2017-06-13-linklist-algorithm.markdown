@@ -6,8 +6,8 @@ categories: algorithm
 tag: linklist algorithm
 ---
 
-### 关于一些链表的常见的面试题备忘
-#### 先预定义下链表节点的结构
+## 关于一些链表的常见的面试题备忘
+### 先预定义下链表节点的结构
 ```
 struct LinkNode {
 	int val;
@@ -16,7 +16,7 @@ struct LinkNode {
 	}
 }
 ```
-#### 单向链表反转
+### 单向链表反转
 *给的头节点，让单向链表反转,并返回反转后的头节点*
 ```
 LinkNode *InversedLink(const LinkNode *head) {
@@ -35,7 +35,7 @@ LinkNode *InversedLink(const LinkNode *head) {
 }
 ```
 
-#### 寻找单向链表的中间节点或倒数第K个节点
+### 寻找单向链表的中间节点或倒数第K个节点
 ```
 LinkNode *FindMidleNode(const LinkNode *head) {
 	assert(head != NULL);
@@ -63,7 +63,7 @@ LinkNode *FindKNode(const LinkNode *head, int k) {
 	return plast;
 }
 ```
-#### 判断单项链表是否有环，并找出环的入口节点
+### 判断单项链表是否有环，并找出环的入口节点
 
 *思路：
 	假设该链表前单链部分的长度为a, 环的长度为b, 现在使用一个二倍速的指针p2和一个
@@ -75,9 +75,11 @@ LinkNode *FindKNode(const LinkNode *head, int k) {
 故代码如下：*
 ```
 LinkNode *FindLoopNode(const LinkNode* head) {
-	assert(head != NULL);
-	LinkNode *pfront = head;
-	LinkNode *plast = head;
+	if (head == NULL || head->next == NULL) {
+        return NULL;
+    }
+	LinkNode *pfront = head->next->next;
+	LinkNode *plast = head->next;
 	while (pfront && pfront->next) {
 		if (pfront == plast) {
 			break;
@@ -85,18 +87,18 @@ LinkNode *FindLoopNode(const LinkNode* head) {
 		pfront = pfront->next->next;
 		plast = plast->next;
 	}
-	if (!pfront) {
+	if (!pfront || !(pfront->next)) {
 		return NULL;//无环
 	}
 	plast = head;
-	while (plast == pfront) {
+	while (plast != pfront) {
 		plast = plast->next;
 		pfront = pfront->next;
 	}
 	return plast;
 }
 ```
-#### 判断两个单项链表是否有交叉点，并找交叉的第一个节点
+### 判断两个单项链表是否有交叉点，并找交叉的第一个节点
 *思路：
 	两个链表是否有交叉节点，如果有交叉节点，因为是交叉节点，所以一定是Y形交叉
 而不是X形交叉。Y形交叉的话，这两个链表的尾节点一点相等。
@@ -115,4 +117,4 @@ LinkNode *FindFirstPub(const LinkNode *head1, const LinkNode *head2) {
 	return p1;
 }
 ```
- 注：同样的思路可以拓展到寻找树中两个节点的最近公共节点
+ 注：同样的思路可以拓展到寻找树中两个节点的最近公共祖先节点（字节点有指向父节点的指针）
