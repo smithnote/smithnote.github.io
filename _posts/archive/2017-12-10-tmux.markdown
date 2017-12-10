@@ -1,0 +1,70 @@
+---
+layout: archive
+title: tmux的使用
+date: 2017-12-10 10:00
+categories: tool
+tag: tmux
+
+---
+
+tmux是一款linux环境下分屏的工具软，对于开发工作十分有帮助
+
+### 安装
+debian/ubuntu 直接使用包管理器安装即可
+```
+sudo apt-get install tmux -y
+```
+redhat/centos 也一样
+```
+sudo yum install tmux -y
+```
+当然也可以源码编译安装[tmux](https://github.com/tmux/tmux/wiki)
+
+
+### 使用
+在shell环境中直接键入 tmux即可开启tmux之旅，这样的话使用的配置都是
+默认的配置，你可以按’ctrl‘ + ‘b’开启tmux控制模式（当然也可以改），
+进入控制模式后按'？'键即可看到所有的按键对应的功能，这里列出一些比较
+常见的按键模式，或者更改按键的功能映射，配置文件是 ~/.tmux.conf(若无则创建)
+```
+#将激活控制台的快捷键由Ctrl+b修改为Ctrl+a
+set-option -g prefix C-a
+unbind-key C-b
+bind-key C-a send-prefix
+#控制台激活后的持续时间；设置合适的时间以避免每次操作都要先激活控制台，单位为毫秒
+set -g repeat-time 1000                    
+
+#更改分屏操作按键的映射
+unbind '"'
+bind - splitw -v # 分上下屏,进入控制模式后按‘|’
+unbind %
+bind | splitw -h # 分左右屏,进入控制模式后按‘-’
+
+```
+每个切出来的屏幕相当于新开的一个shell, 退出shell便也关闭了这个分屏。
+有一个特别实用的功能就是不同屏之间的复制粘贴，tmux默认是'['负责，']'粘贴
+使用的时候进入复制模式后，空格键开启选择，enter键结束选择并复制。
+这个功能在开启两个屏幕进行数据交流很是方便。但是这也仅限于tmux中，如果想要
+在tmux中复制能够在其他程序中粘贴，例如浏览器中，就要配合xclip程序了
+```
+sudo apt-get install xclip -y
+```
+安装xclip后，在.tmux.conf配置文件中添加
+```
+# 绑定 ctrl + p粘贴系统剪切板
+bind C-p run "tmux set-buffer \"$(xclip -o)\"; tmux paste-buffer"
+# 绑定 ctrl + y复制到系统剪切板
+bind C-y run "tmux save-buffer - | xclip -i -selection clipboard"
+```
+
+### tmux插件
+tmux有不少的插件配合这使用，例如[tmux-powerline](https://github.com/erikw/tmux-powerline)就是一款不错的插件,
+插件多了，插件管理器应运而生[tmp](https://github.com/tmux-plugins/tpm)，噢对了，还有一款很nice的插件用来
+保持和恢复分屏的状态的，在.tmux.conf中添加
+```
+set -g @plugin 'tmux-plugins/tpm'
+set -g @plugin 'tmux-plugins/tmux-resurrect'
+run '~/.tmux/plugins/tpm/tpm'
+```
+之后即可ctrl+s保存和ctrl+r恢复分屏了, 最后献上一张本人的分屏效果图  
+![](/assets/images/tmuxusing.png) 
