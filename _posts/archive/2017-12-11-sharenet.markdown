@@ -1,0 +1,27 @@
+---
+layout: archive
+title: iptable共享上网
+date: 2017-12-11 10:00
+categories: tool
+tag: iptable
+
+---
+
+## 网络共享
+之前朋友组装了一台台式机，但是由于时间匆忙，一件重要的硬件给忽略了，那就是无线网卡，由于房中的网络都是通过无线交流的，路由器又不在电脑旁边，手中只有一根2米左右的网线和一台笔记本，就这样想到了通过共享笔记本的网络来联通网络(其实就是gaming), 上网查了查linux下共享网络的方法: 
+* [通过iptable设置转发](#1)
+
+### 通过iptable设置转发
+我们知道iptable在linux下通常的功能是配置防火墙来使用，但它的转发功能我们却可以用来实现其他功能，就如现在用来实现共享上网。
+要实现共享上网那得至少有两张网卡，一张网卡用来连接外网，一张用来转发流量,网卡编号分别为eth0, eth1，如果以为的笔记本为例子，eth0就是无线网卡，eth1就是有线网卡,这样配置如下：
+```
+# shell 脚本
+# 首先启动 eth1有线网卡并配置ip
+ifconfig eth1 up
+ip addr add 192.168.1.1/24 dev eth1 # ip的范围不可与eth0的子网重合
+# 配置iptable转发
+iptables -A INPUT -i eth1 -j ACCEPT
+iptables -A FORWORD -i eth0 -j ACCEPT
+iptables -t nat -A POSTROUTING -s 192.168.1.1/24 -o eth0 -j MASQURADE
+```
+直接执行该脚本就能够开启流量分享了，但要注意的一点是，客户端要手动配置ip和mask和网关, 以上面的配置为例，客户端要配置ip为192.168.1.xx（任意, 但不为1）， mask: 255.255.255.0, 网关为192.168.1.1, 就可开始internet之旅了。
