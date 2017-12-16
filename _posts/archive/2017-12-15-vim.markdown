@@ -1,0 +1,98 @@
+---
+layout: archive
+title: vim的日常
+date: 2017-12-16 11:00
+categories: tool
+tag: vim
+
+---
+vim 作为linux下的编辑器之神，对于vim的使用不要求会写插件但是一些基本日常还是需要掌握的，这里记录下vim的基本日常使用
+* [安装](#安置)
+* [配置](#配置)
+* [插件](#插件)
+* [使用](#使用)
+
+### 安装
+debian/ubuntu的安装直接使用包管理器apt
+```
+sudo apt-get install vim -y
+```
+redhat/centos的可以也可以使用包管理yum
+```
+sudo yum install vim -y
+```
+当然也可以使用源码安装[vim](ftp://ftp.vim.org/pub/vim/unix/vim-7.4.tar.bz2)，下载源码后
+```
+tar -jxvf vim-7.4.tar.bz2
+cd vim74 && make -j 4 && make install
+```
+
+### 配置
+安装完vim后，vim的配置都是默认的，默认读取/etc/vimrc配置(不同linux版本略有差别)作为全局的配置，~/.vimrc作为单个用户的配置，所有用户只需要直接配置~/.vimrc就可以了，一下设置是一些比较常用的
+```
+set nu "设置行号
+set encoding=utf-8 "设置编码格式
+set fileencodings=utf-8,gbk,gb2313,cp936 "设置文件的解码格式
+set background=dark "背景设置
+colorscheme desert " 设置沙漠颜色主题
+set tabstop=4 "tab键=4个空格
+set ai "Auto indent
+set si "Smart indent
+set foldmethod=indent "设置代码折叠根据缩进
+filetype on " 开启文件类型检测
+plugin on "开启插件支持
+```
+这些是比较常用的吧，当然这里只是简单的列举，如果需要更多的自定义设置可以在正常模式下 ':' + 'help'就可获取更多详细信息
+
+### 插件
+作为程序员最幸福的是你不用重复造轮子，vim被使用这么多年早就有前辈们写好的插件和配置供你选择使用，插件简直太多，所以也有一个统一的包管理器[vundle](https://github.com/VundleVim/Vundle.vim),安装使用如下
+```
+# git是程序员常用的管理代码的软件，没有直接sudo apt-get install git安装即可
+git clone https://github.com/VundleVim/Vundle.vim.git ~/.vim/bundle/Vundle.vim
+# 而后在.vimrc下面添加一下配置
+set nocompatible              " be iMproved, required
+filetype off                  " required
+
+set rtp+=~/.vim/bundle/Vundle.vim
+call vundle#begin()
+Plugin 'VundleVim/Vundle.vim'
+"此处放置其他插件设置例如https://github.com/vim-airline/vim-airline这个vim插件
+"你只需要取链接.com后面的配置成
+Plugin 'vim-airline/vim-airline'即可
+"更多插件可以去https://vimawesome.com/上面寻找
+call vundle#end()            " required
+filetype plugin indent on    " required
+"filetype plugin on
+
+```
+在vimrc配置文件下写好了安装插件的名称后就可以直接执行"vim +PluginInstall +qall", 等待安装结果了
+
+### 使用
+vim的使用都可以出书了，功能简直太多，这里就简单的说一下吧  
+vim 有三个模式:
+1. 正常模式
+2. 插入模式
+3. 命令行模式 
+
+当你使用vim打开某个文件时，你默认进的就是正常模式(Normal),此时，你可以浏览阅该文件，但不能直接编辑,相应编辑直接键如'i'键便进入插入模式(insert)，这个时候你就可以正常编辑了，退出插入模式直接按Esc键即可进入正常模式，当你编辑完后想要保持和退出，此时按':'键，光标会移到屏幕下方，此时进入了命令行模式,然后你就可以wq回车退出了。使用一张网络上的图演示  
+![](/assets/images/vim_mode.png)
+知道这三个模式后，其他的就是一些快捷键和常用的命令的掌握了.
+
+正常模式下：
+> h 或 向左箭键(←): 光标向左移动一个字符  
+j 或 向下箭键(↓): 光标向下移动一个字符  
+k 或 向上箭键(↑): 光标向上移动一个字符  
+l 或 向右箭键(→): 光标向右移动一个字符  
+G :移劢到这个档案癿最后一行(常用)  
+nG: 移动到n行.n为数字，比如20G移动到第20行  
+gg: 移动到首行  
+n<<Enter>> :当前光标向下移动n行，n为数字
+
+命令行模式下：
+> w : 写入文件  
+> q : 退出vim  
+> set nu: 设置显示行号，基本上vimrc里的配置命令行写入也能生效，但是下一次打开的时候就会消失，如果想要每次打开vim都能使用的这个配置就最后写入配置文件中  
+> %s/src/dest/g: 全局替换，%代表全局，src是目标字符，dest是替换后的字符，g代表每行的多个src都替
+
+插入模式：
+这个没的说了，就是正常的敲字符文字了，
