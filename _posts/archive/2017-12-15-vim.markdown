@@ -38,6 +38,8 @@ colorscheme desert " 设置沙漠颜色主题
 set tabstop=4 "tab键=4个空格
 set ai "Auto indent
 set si "Smart indent
+" 设置了ai或si后，当你在插入模式下粘贴文本，也会生效导致布局错误，
+" 这个时候可以在命令行模式下输入:set paste后粘贴，粘贴完:set nopaste回复indent
 set foldmethod=indent "设置代码折叠根据缩进
 filetype on " 开启文件类型检测
 plugin on "开启插件支持
