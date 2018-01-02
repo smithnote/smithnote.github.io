@@ -1,0 +1,103 @@
+---
+layout: archive
+title: iptables搭建简单防火墙
+date: 2017-12-31 12:00
+categories: tool
+tag: iptable
+
+---
+在linux环境下工作基本的一些防火墙知识还是需要了解的，简单的编写一些基础的规则，
+就能够大大的提高自身电脑的安全性。iptables正是linux下实现防火墙的最佳工具（当然
+iptable主要的功能是流量数据转发传送控制）。
+### 安装
+debian/ubuntu 系安装
+```
+sudo apt-get install iptables -y
+```
+redhat/centos系安装
+```
+sudo yum install iptables -y
+```
+### 配置
+
+当安装完成后，先了解一下iptables的简单的原理的介绍，iptable下面有5张表
+1. filter表，这张表包含了数据的进入，转发和流出功能的控制, 表中有三种链INPUT, OUTPUT, FORWARD
+2. net表，这张表包含流量包的转发共享网络的控制, 表中有四种链PREROUTING, INPUT, OUTPUT, POSTROUTING
+3. 剩余的mangle, raw, security三张表暂时用不到就一笔带过来了
+
+我们主要就是将规则写入对应的表中来实现防火墙的功能的，简单的介绍下iptables的
+语法使用:
+```
+iptables [-t table] [options]
+```
+其中 table便是上面提到的5种表，option就包括了具体的配置细节了。
+对于配置防火墙，我是直接将配置的细节写入shell脚本里面，方便自己使用
+
+```
+#!/bin/bash
+
+## Clean the rule
+iptables -F
+iptables -Z
+iptables -X
+#
+##  Custonmise the base rule
+# 设置基本链的规则（所有的进入请求全部丢弃）
+# iptable会根据规则链一个个去对比，直到通过或无规则为止
+iptables -P INPUT DROP
+#
+##  Customise the detailed rules
+# -A: 添加到链中
+# -i: 网卡接口，就是ifconfig看到的网卡的名字，例如eth0
+# -p: 协议类型， tcp/udp/icmp等等，也可以是all
+# --sport: 远程端口
+# --dport: 目标端口
+# -m: 匹配模式
+# --state: 状态
+# -j: 跳转到相应的处理规则，ACCEPT或DROP等
+
+NETCARD=wlp2s0
+iptables -A INPUT -i lo -j ACCEPT # 本地网卡流量都接收                                                               
+iptables -A INPUT -i $NETCARD  -p udp  --sport 53  -j ACCEPT #来自查询域名使用                   
+# 允许浏览器80（http）和443（https）连接访问
+iptables -A INPUT -i $NETCARD  -p tcp  --sport 80  -m state --state ESTABLISHED,RELATED  -j ACCEPT
+iptables -A INPUT -i $NETCARD  -p tcp  --sport 443 -m state --state ESTABLISHED,RELATED  -j ACCEPT
+# 允许邮件客户端连接访问网络（imap协议）
+iptables -A INPUT -i $NETCARD  -p tcp  --sport 993 -m state --state ESTABLISHED,RELATED  -j ACCEPT
+# 允许ftp协议的连接
+iptables -A INPUT -i $NETCARD  -p tcp  --sport 21  -m state --state ESTABLISHED,RELATED  -j ACCEPT
+iptables -A INPUT -i $NETCARD  -p tcp  --dport 21  -m state --state ESTABLISHED,RELATED,NEW  -j ACCEPT
+# 允许ssh连接
+iptables -A INPUT -i $NETCARD  -p tcp  --dport 22  -m state --state ESTABLISHED,RELATED,NEW  -j ACCEPT
+# 允许已经建立链接状态和相关状态的连接的连接
+iptables -A INPUT -i $NETCARD  -m state --state RELATED,ESTABLISHED -j ACCEPT
+# 运行icmp 0类型的回应（ping命令的正常回应）
+iptables -A INPUT -i $NETCARD  -p icmp  --icmp-type 0 -j ACCEPT
+# 允许来自局域网192.168.0.1/24, 192.168.1.1/24的连接
+iptables -A INPUT -i $NETCARD  -s 192.168.0.1/24 -j ACCEPT
+iptables -A INPUT -i $NETCARD  -s 192.168.1.1/24 -j ACCEPT
+
+# 设置所有的外出和转发都允许
+iptables -P OUTPUT ACCEPT
+iptables -P FORWARD ACCEPT
+
+# 保存所有规则
+/sbin/iptables-save 
+
+```
+
+### 使用
+
+将上面的规则保存在shell脚本ipt.sh中后，直接运行
+```
+bash ipt.sh
+```
+如果要能够每次开机都应用这个规则，可以将在/etc/rc.local中添加
+```
+bash /path/ipt.sh
+```
+当然还有一点要注意的是iptables服务检查是否开机运行， redhat/centos使用
+```
+chkconfig iptables on
+```
+debian/ubuntu是默认一直开启iptables服务的
