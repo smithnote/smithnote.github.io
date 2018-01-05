@@ -97,4 +97,7 @@ n<<Enter>> :当前光标向下移动n行，n为数字
 > %s/src/dest/g: 全局替换，%代表全局，src是目标字符，dest是替换后的字符，g代表每行的多个src都替
 
 插入模式：
-这个没的说了，就是正常的敲字符文字了，
+这个没的说了，就是正常的敲字符文字了。
+#### 常用的技巧
+1. 某天打开python文件，发现tab全部设为了8个空格，可在~/.vimrc文件中自己设置了tabstop=4.后
+使用:verbose set tabstop查看最后一次该参数设置生效位置，位于usr/share/vim/vim80/ftplugin/python.vim文件中设置了，直接注释掉。
