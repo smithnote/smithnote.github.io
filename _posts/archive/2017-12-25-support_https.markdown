@@ -26,7 +26,6 @@ cloudflare提供的dns了 ![](/assets/images/support_https-aliyun_change_nameser
 7. 添加page rule, 这样的话，当别人没有输入https的时候，自动装换为https链接访问
 ![](/assets/images/support_https-create_page_rule.png)
 8. (选项) 对于我是使用[Minimal Mistakes](https://mmistakes.github.io/minimal-mistakes/)
-主题的，所以当http转换为https的时候，还要修改_config.yml文件中的**url : "http://smithnote.com"** 修改成 **url : "https://smithnote.com"**, 不过这样的话，本地编写markdown的时候无法
-通过jekyll serve直接预览样式效果,需要改回http
+主题的，所以当http转换为https的时候，还要修改_config.yml文件中的**url : "http://smithnote.com"** 修改成 **url : "https://smithnote.com"**.
 
 至此，你的github page就可以正式支持https了
