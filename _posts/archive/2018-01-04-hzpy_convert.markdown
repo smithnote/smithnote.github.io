@@ -95,6 +95,38 @@ tag: utf8 chinese pinyin
         }
     }
     ```
+    * 关于多音字的支持。解决了汉字转拼音这一步后，有时候要多字的支持，这个时候我们可以在上面返回拼音的地方
+    稍微修改一下，返回该汉字所有的拼音（使用特殊字符间隔），然后我们要做的就是对给点的一条汉字字符串返回所有
+    拼音排列组合，相应的代码如下：
+
+    ```
+    bool hz2py(std::string words, std::vector<std::string> &pinyin) {
+        if (words.empty()) {
+            return false;
+        }
+        std::vector<std::vector<string> >pinyin_vec;
+        //每个单词一个vector, vector存每个单词的所有拼音
+        get_pinyin_vec(words, pinyin_vec);
+        pinyin.clear();
+        pinyin.push_back("");
+        for (size_t i=0;i<pinyin_vec.size();i++){
+            const std::vector<string> &vec = pinyin_vec[i];
+            size_t py_size = pinyin.size();
+            for (size_t j = 0; j < py_size; ++j) {
+                std::string pre_pinyin = pinyin[j];
+                for (size_t k = 0; k < vec.size(); ++k) {
+                    if (k == 0) {
+                        pinyin[j].append(vec[k]);
+                    } else {
+                        pinyin.push_back(pre_pinyin + vec[k]);
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    ```
 
 ## 汉字转简拼
 
