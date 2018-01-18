@@ -1,0 +1,256 @@
+---
+layout: archive
+title: trie树的简单实现
+date: 2018-01-11 18:20
+categories: programming
+tag: trie
+
+---
+Trie树，也就是前缀树或字典树。在工作中使用到了Trie树，所以就去查找了相关的资料,关于Trie的
+原理以及相应的库的实现，自己也写了个小的demo来实现trie树。
+
+## 原理
+trie树不同于hash map, trie树也是一棵数，与普通二叉树的区别是trie数的分支不止两个，有N个
+N根据实际情况的数据量来觉得，并且除头节点外，每个字节点都保持value信息。借用网络上的一张图
+能够一目了然的解释trie树![](/assets/images/trie_detail.png)  
+其主要是利用key的个体单位信息来决定其寻找value的
+路线，也就是每一个节点存储最小的单位信息，在查询的
+时候，切割查询的词条，而后去匹配节点。这是一个小demo, 展示了trie
+树的简单的实现，当然实际运用中肯定不是这样实现的，我这里方便理解，直接按着上面
+给出的示意图来实现，并且实现的时候我是以utf-8为最小的切割单位体，这样也就能支持
+中文了。
+```
+// Copyright (c) 2017 smtihemail@163.com. All rights reserved.
+// Author：smithemail@163.com
+// Time：2017-12-30
+
+#include <iostream>
+#include <string>
+#include <map>
+#include <set>
+#include <queue>
+
+template<class VALUE>
+class TrieNode {
+  public:
+    TrieNode() {};
+    ~TrieNode() {
+        release();
+    }
+    // 添加数据
+    bool add(const std::string &key, const VALUE &value);
+    // 删除数据
+    bool del(const std::string &key, const VALUE &value);
+    // 修改数据
+    bool set(const std::string &key, const VALUE &value);
+    // 查询数据
+    bool get(const std::string &key, std::set<VALUE> &value);
+    // 查询共同前缀数据
+    bool prefix_get(const std::string &key, std::set<VALUE> &value);
+    // 查询共同前缀数据量大小
+    size_t prefix_size(const std::string &key);
+    
+    inline bool add(const char *key, const VALUE &value) {
+        return add(std::string(key), value);
+    }
+  public:
+    bool first_utf8_word(std::string &word, const std::string &key);
+    bool get_subs(const TrieNode *head, std::set<VALUE> &values);
+    bool get_size(const TrieNode *head, size_t &size) const;
+    bool release();
+  private:
+    typedef std::map<std::string, TrieNode*> KEY_MAP;
+    KEY_MAP next_nodes_;
+    std::set<VALUE> values_;
+};
+
+template<class VALUE>
+bool TrieNode<VALUE>::first_utf8_word(std::string &word, const std::string &key) {
+    if (key.empty()) {
+        return false;
+    }
+    word.clear();
+    if (((unsigned char)key[0] & 0x80 )== 0) {
+        word = key.substr(0, 1); 
+    } else if ((unsigned char)(key[0] & 0xE0) == 0xC0) {
+        word = key.substr(0, 2);
+    } else if ((unsigned char)(key[0] & 0xF0) == 0xE0) {
+        word = key.substr(0, 3);
+    } else if ((unsigned char)(key[0] & 0xF8) == 0xF0) {
+        word = key.substr(0, 4);
+    } else if ((unsigned char)(key[0] & 0xFC) == 0xF8) {
+        word = key.substr(0, 5);
+    } else if ((unsigned char)(key[0] & 0xFE) == 0xFC) {
+        word = key.substr(0, 6);
+    }
+    return true;
+}
+
+template<class VALUE>
+bool TrieNode<VALUE>::get_subs(const TrieNode *head, std::set<VALUE> &values) {
+    if (head == NULL) {
+        return false;
+    }
+    values.clear();
+    TrieNode *first_node = const_cast<TrieNode*>(head);
+    std::queue<TrieNode*> node_queue;
+    node_queue.push(first_node);
+    while (!node_queue.empty()) {
+        TrieNode *p = node_queue.front();
+        node_queue.pop();
+        std::set<VALUE> &vs = p->values_; 
+        values.insert(vs.begin(), vs.end());
+        for (auto iter = p->next_nodes_.begin(); iter != p->next_nodes_.end(); ++iter) {
+            node_queue.push(iter->second);
+        } 
+    }
+}
+
+template<class VALUE>
+bool TrieNode<VALUE>::get_size(const TrieNode *head, size_t &size) const {
+    if (head == NULL) {
+        return false;
+    }
+    const TrieNode *first_node = head;
+    std::queue<const TrieNode*> node_queue;
+    node_queue.push(first_node);
+    while (!node_queue.empty()) {
+        const TrieNode *p = node_queue.front();
+        node_queue.pop();
+        const std::set<VALUE> &vs = p->values_; 
+        size += vs.size();
+        for (auto iter = p->next_nodes_.begin(); iter != p->next_nodes_.end(); ++iter) {
+            node_queue.push(iter->second);
+        } 
+    }
+    return true;
+}
+
+template<class VALUE>
+bool TrieNode<VALUE>::release() {
+    for (auto iter = next_nodes_.begin(); iter != next_nodes_.end(); ++iter) {
+        if (iter->second != NULL) {
+            delete iter->second;
+            iter->second = NULL;
+        }
+    }
+}
+
+template<class VALUE>
+bool TrieNode<VALUE>::add(const std::string &key, const VALUE &value) {
+    if (key.size() == 0) {
+        values_.insert(value);
+        return true;
+    }
+    std::string word;
+    if (!first_utf8_word(word, key)) {
+        return false;
+    }
+    if (next_nodes_.find(word) == next_nodes_.end()) {
+        TrieNode *np = new TrieNode();
+        next_nodes_[word] = np;
+    }
+    return next_nodes_[word]->add(key.substr(word.size(), key.size()), value);
+}
+
+template<class VALUE>
+bool TrieNode<VALUE>::del(const std::string &key, const VALUE &value) {
+    if (key.empty()) {
+        return false;
+    }
+    std::string word;
+    if (!first_utf8_word(word, key)) {
+        return false;
+    }
+    if (next_nodes_.find(word) == next_nodes_.end()) {
+        return false;
+    }
+    if (word.size() == key.size()) {
+        next_nodes_[word]->values_.erase(value);
+        if (!next_nodes_[word]->values_.size()
+            && !next_nodes_[word]->next_nodes_.size()) {
+            delete next_nodes_[word];
+            next_nodes_.erase(word);
+        }
+        return true;
+    }
+    return next_nodes_[word]->del(key.substr(word.size(), key.size()), value);
+}
+
+template<class VALUE>
+bool TrieNode<VALUE>::get(const std::string &key, std::set<VALUE> &values) {
+    if (key.empty()) {
+        return false;
+    }
+    std::string word;
+    if (!first_utf8_word(word, key)) {
+        return false;
+    }
+    if (next_nodes_.find(word) == next_nodes_.end()) {
+        return false;
+    }
+    if (word.size() == key.size()) {
+        values = next_nodes_[word]->values_;
+        return true;
+    }
+    return next_nodes_[word]->get(key.substr(word.size(), key.size()), values);
+}
+
+template<class VALUE>
+bool TrieNode<VALUE>::prefix_get(const std::string &key, std::set<VALUE> &values) {
+    if (key.empty()) {
+        return false;
+    }
+    std::string word;
+    if (!first_utf8_word(word, key)) {
+        return false;
+    }
+    if (next_nodes_.find(word) == next_nodes_.end()) {
+        return false;
+    }
+    if (word.size() == key.size()) {
+        get_subs(next_nodes_[word], values);
+        return true;
+    }
+    return next_nodes_[word]->prefix_get(key.substr(word.size(), key.size()), values);
+}
+
+template<class VALUE>
+size_t TrieNode<VALUE>::prefix_size(const std::string &key) {
+    if (key.empty()) {
+        return false;
+    }
+    std::string word;
+    if (!first_utf8_word(word, key)) {
+        return false;
+    }
+    if (next_nodes_.find(word) == next_nodes_.end()) {
+        return false;
+    }
+    if (word.size() == key.size()) {
+        size_t result_size = 0;
+        return get_size(next_nodes_[word], result_size) ? result_size : -1;
+    }
+    return next_nodes_[word]->prefix_size(key.substr(word.size(), key.size()));
+}
+
+template<class VALUE>
+bool TrieNode<VALUE>::set(const std::string &key, const VALUE &value) {
+    if (key.size() == 0) {
+        values_.insert(value);
+        return true;
+    }
+    std::string word;
+    if (!first_utf8_word(word, key)) {
+        return false;
+    }
+    if (next_nodes_.find(word) == next_nodes_.end()) {
+        TrieNode *np = new TrieNode();
+        next_nodes_[word] = np;
+    }
+    return next_nodes_[word]->set(key.substr(word.size(), key.size()), value);
+}
+```
+**注**: 我这里实现对每个节点的分叉出子节点还是利用了stl的map，所以也能知道trie树和简单的map最大
+的区别使用就是能够支持前缀匹配，至于查询速度上的差别还真不大
+
