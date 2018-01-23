@@ -110,10 +110,13 @@ tag: utf8 chinese pinyin
         pinyin.clear();
         pinyin.push_back("");
         for (size_t i=0;i<pinyin_vec.size();i++){
-            const std::vector<string> &vec = pinyin_vec[i];
+            std::vector<string> &vec = pinyin_vec[i];
             size_t py_size = pinyin.size();
             for (size_t j = 0; j < py_size; ++j) {
                 std::string pre_pinyin = pinyin[j];
+                if (pinyin.size() > 32) {
+                    vec.resize(1);// 实际使用中做下限制
+                }
                 for (size_t k = 0; k < vec.size(); ++k) {
                     if (k == 0) {
                         pinyin[j].append(vec[k]);
@@ -127,6 +130,8 @@ tag: utf8 chinese pinyin
     }
 
     ```
+    **Note**:实际使用过程中有必要限制下大小的，假设提供的中文字符串是几十个多音字,每个多音字
+    有两个选项，2的几十次方的空间需求，程序会直接挂掉，所以最好加个限制。
 
 ## 汉字转简拼
 
