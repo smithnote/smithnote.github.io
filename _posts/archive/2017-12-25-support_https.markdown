@@ -29,3 +29,6 @@ cloudflare提供的dns了 ![](/assets/images/support_https-aliyun_change_nameser
 主题的，所以当http转换为https的时候，还要修改_config.yml文件中的**url : "http://smithnote.com"** 修改成 **url : "https://smithnote.com"**.
 
 至此，你的github page就可以正式支持https了
+
+**注**: 如果你使用有google console支持网站优化，你必须要将https://yoursite.com添加进去，
+因为goolge认为http://yoursite.com和https://yoursite.com是两个不同的网站
