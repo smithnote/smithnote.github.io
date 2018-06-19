@@ -1,0 +1,309 @@
+---
+layout: archive
+title: Google S2 library的使用
+date: 2018-06-15 10:15
+categories: programing
+tag: tools, library
+---
+
+关于google s2算法的详细的介绍有一篇很好的中文博客，可以浏览[《高效的多维空间点索引算法》](https://halfrost.com/go_spatial_search/)。这里就只介绍google s2库的具体使用
+
+## 安装
+直接源码编译安装，步骤如下
+```
+git clone https://github.com/google/s2geometry
+cd s2geometry
+mkdir build && cd build
+make
+sudo make install
+```
+## 预先了解的概念
+
+* **地球**(S2Earth): 地球的表示类，它提供了一系列对于S2Point, S2Latlng等相关的操作，例如两个坐标点之间的
+                 距离，将距离装换为S2ChorAngle，方便其他接口调用
+* **点**(S2Point): 三维空间中的某个点的表示class, 由地球上的经纬度转换成实际的三维坐标而来
+* **角度**(S1Angle): 表示一维角度，具体的理解就如同经纬度中的其中一个维度,如经度或纬度
+* **弦角**(S1ChordAngle): 相较于一维角度，弦角是球体上两个点分别与球心连线的夹角，取值范围[0, 180]
+* **坐标**(S2LatLng): 地球经纬度坐标的表示class, 其内部由两个S1Angle表示
+* **区域**(S2Region): 地球上的某个区域的base class表示, 实际的区域都继承于它
+    * **矩形区域**(S2LatLngRect):由两个坐标或者两个点初始化。具体就是由一个最小经纬度p1(矩形左下角的坐标)
+                                 和最大经纬度坐标p2(矩形右上角的坐标)初始化，所以要保证-90 &lt;=p1.lat &lt;= p2.lat &lt;= 90，而经度则无要求
+    * **圆形区域**(S2Cap):由一个圆心坐标和一段半径距离初始化（也可以是一个角度）, 在球体上就是一个帽盖形状
+    * **闭环多边形**(S2Loop): 闭环多边形, 由给定一系列坐标点的列表的顺序形成一个闭环，也就是说最后的连线的终点就是起点，
+                              这个要注意的是多边形内部是定义在连线方向的左边
+    * **线形区域**(S2Polyline):由给定的点连成的直线组成
+    * **多个闭环区域**(S2Polygon): 由多个S2Loop组成
+* **点索引**(S2PointIndex): 点的索引实现类，是个模板类，是为了方便的添加每个point的额外信息。
+                        它主要跟他相关的查询接口类来配合实现对索引的操作。
+* **形状**(S2Shape): 并不是具体指额某个形状，它表示同一维度的几何形集合，例如point的集合，闭环多边形的集合, 线形区域等, 
+                 那些几何形都实现了S2Shape的接口, 例如S2Loop::Shape, S2Polygon::Shape, S2Polyline::Shape等
+* **形状索引**(S2ShapeIndex): shape索引抽象class, 它跟一系列其他相关的类配合来实现对索引的操作
+
+
+## 常用的使用场景
+
+### 计算两个坐标点之间的距离
+初始化两个经纬度坐标（纬度在前，经度在后），调用S2Earth的GetDistanceMeters计算距离米
+
+```
+#include <iostream>
+
+#include "s2/s2earth.h"
+
+int main(int argc, char** argv) {
+    S2LatLng latlng_one = S2LatLng::FromDegrees(10, -120);
+    S2LatLng latlng_two = S2LatLng::FromDegrees(10, -122);
+    double dist = S2Earth::GetDistanceMeters(latlng_one, latlng_two);
+    std::cout << "latlng_one and latlng_two distance: " << dist << " m\n";
+}
+```
+
+### 查询某个点是否在某块区域内
+初始化一个区域和一个坐标，然后直接查询即可，代码如下：
+
+```
+#include <iostream>
+#include <vector>
+
+#include "s2/s1angle.h"
+#include "s2/s2latlng.h"
+#include "s2/s2latlng_rect.h"
+#include "s2/s2polyline.h"
+#include "s2/s2loop.h"
+
+int main(int argc, int argv) {
+    /*
+    S1Angle lat_one = S1Angle::Degrees(10.0)
+    S1Angle lng_one = S1Angle::Degrees(10.0)
+    S1Angle lat_two = S1Angle::Degrees(20.0)
+    S1Angle lng_two = S1Angle::Degrees(30.0)
+    S2LatLng latlng_one(lat_one, lng_one), latlng_two(lat_two, lng_two);
+    下面初始化的方法更方便点
+    */
+    S2LatLng latlng_one = S2LatLng::FromDegrees(10.0, 10.0);
+    S2LatLng latlng_two = S2LatLng::FromDegrees(20.0, 20.0); 
+    S2LatLng latlng_three = S2LatLng::FromDegrees(15.0, 20.0);
+    S2LatLng latlng_rand = S2LatLng::FromDegrees(35.0, 15.0);
+    S2LatLngRect region_rect(latlng_one, latlng_two);// 矩形
+    
+    if (region_rect.Contains(latlng_rand)) {
+        std::cout << "region contain the latlng\n";
+    } else {
+        std::cout << "region not contain the latlng\n";
+    }
+    
+    std::vector<S2Point> local_vec;
+    local_vec.reserve(3);
+    local_vec.push_back(latlng_one.ToPoint());
+    local_vec.push_back(latlng_two.ToPoint());
+    local_vec.push_back(latlng_three.ToPoint());
+    S2Loop region_loop(local_vec);// 闭环多边形
+    if (region_loop.Contains(latlng_rand.ToPoint())) {
+        std::cout << "region contain the latlng\n";
+    } else {
+        std::cout << "region not contain the latlng\n";
+    }
+}
+```
+
+### 查询某个坐标点最近的N个坐标点集合
+查询最近的节点需要建立相应待选point的索引S2PointIndex, 而后配合相应的S2ClosestPointQuery来查询结果,
+并且设置近距离最多的返回结果数量即可
+
+```
+#include <iostream>
+#include <vector>
+
+#include "s2/s2latlng.h"
+#include "s2/s2point_index.h"
+#include "s2/s2closest_point_query.h"
+
+
+int main(int argc, int argv) {
+    S2LatLng latlng_one = S2LatLng::FromDegrees(10.0, 10.0);
+    S2LatLng latlng_two = S2LatLng::FromDegrees(20.0, 20.0); 
+    S2LatLng latlng_three = S2LatLng::FromDegrees(15.0, 11.0);
+    S2LatLng latlng_rand = S2LatLng::FromDegrees(15, 15);
+    
+    //模板实现使用string, 字符串信息,更通用的是指针，这样更灵活附带信息
+    S2PointIndex<std::string> point_index;
+    point_index.Add(latlng_one.ToPoint(), "first_point");
+    point_index.Add(latlng_two.ToPoint(), "second_point");
+    point_index.Add(latlng_three.ToPoint(), "third_point");
+    
+    // 这个查询类要跟索引的模板实现一致,这个是都要是std::string
+    S2ClosestPointQuery<std::string> query(&point_index);
+    S2ClosestPointQuery<std::string>::PointTarget target(latlng_rand.ToPoint());
+    query.mutable_options()->set_max_results(2);
+    std::vector<S2ClosestPointQuery<std::string>::Result> result_vec;
+    query.FindClosestPoints(&target, &result_vec);
+    if (result_vec.empty()) {
+        std::cout << "not find close points\n";
+        return 0;
+    }
+    for (size_t i = 0; i < result_vec.size(); ++i) {
+        std::cout << "point data " << result_vec[i].data()
+                  << " dist: " << result_vec[i].distance() << std::endl;
+    }
+    return 0;
+}
+```
+
+### 查询某个坐标点距离dist范围内的坐标点集合
+跟查询最近的N个坐标的类似，不过这次查询改为设置最远距离限制
+```
+#include <iostream>
+#include <vector>
+
+#include "s2/s2earth.h"
+#include "s2/s2latlng.h"
+#include "s2/s2point_index.h"
+#include "s2/s2closest_point_query.h"
+
+
+int main(int argc, int argv) {
+    S2LatLng latlng_one = S2LatLng::FromDegrees(10.0, 10.0);
+    S2LatLng latlng_two = S2LatLng::FromDegrees(20.0, 20.0); 
+    S2LatLng latlng_three = S2LatLng::FromDegrees(-75.0, 15.0);
+    S2LatLng latlng_rand = S2LatLng::FromDegrees(15, 15);
+    
+    //附带字符串信息,更通用的是指针，这样更灵活附带信息
+    S2PointIndex<std::string> point_index;
+    point_index.Add(latlng_one.ToPoint(), "first_point");
+    point_index.Add(latlng_two.ToPoint(), "second_point");
+    point_index.Add(latlng_three.ToPoint(), "third_point");
+    
+    // 这个查询类要跟索引的模板实现一致,这个是都要是std::string
+    S2ClosestPointQuery<std::string> query(&point_index);
+    S2ClosestPointQuery<std::string>::PointTarget target(latlng_rand.ToPoint());
+    const util::units::Meters dist(1000000000);// 定义距离米
+    // 设置最大距离限制
+    query.mutable_options()->set_max_distance(S2Earth::ToChordAngle(dist));
+    S2ClosestPointQuery<std::string>::Result ret = query.FindClosestPoint(&target);
+    if (ret.is_empty()) {
+        std::cout << "not find closest point from index\n";
+        return 0;
+    }
+    std::cout << "closest point data:" << ret.data() << std::endl;
+    std::cout << "closest point distance:" << S2Earth::ToKm(ret.distance()) << std::endl;
+    std::cout << "closest point point:" << ret.point() << std::endl;
+
+    std::vector<S2ClosestPointQuery<std::string>::Result> result_vec;
+    query.FindClosestPoints(&target, &result_vec);
+    if (result_vec.empty()) {
+        std::cout << "not find close points\n";
+        return 0;
+    }
+    for (size_t i = 0; i < result_vec.size(); ++i) {
+        std::cout << "point data " << result_vec[i].data()
+                  << " dist: " << result_vec[i].distance() << std::endl;
+    }
+    return 0;
+}
+```
+
+### 查询某个区域内的所有坐标点的集合
+查询某个区域范围内的点的集合，暂时没有直接的接口设定，但是可以利用FindClosestPoints的区域限制选项
+将区域限制为我们要取的范围，而距离选项默认是最大的，这样就能够获取到设定区域内的所有点的集合
+
+```
+#include <iostream>
+#include <vector>
+
+#include "s2/s2latlng.h"
+#include "s2/s2point_index.h"
+#include "s2/s2closest_point_query.h"
+#include "s2/s2loop.h"
+
+
+int main(int argc, int argv) {
+    S2LatLng latlng_one = S2LatLng::FromDegrees(10.0, 10.0);
+    S2LatLng latlng_two = S2LatLng::FromDegrees(20.0, 20.0); 
+    S2LatLng latlng_three = S2LatLng::FromDegrees(15.0, 11.0);
+    S2LatLng latlng_rand = S2LatLng::FromDegrees(15, 15);
+    
+    //附带字符串信息,更通用的是指针，这样更灵活附带信息
+    S2PointIndex<std::string> point_index;
+    point_index.Add(latlng_one.ToPoint(), "first_point");
+    point_index.Add(latlng_two.ToPoint(), "second_point");
+    point_index.Add(latlng_three.ToPoint(), "third_point");
+    
+    // 这个查询类要跟索引的模板实现一致,这个是都要是std::string
+    S2ClosestPointQuery<std::string> query(&point_index);
+    S2ClosestPointQuery<std::string>::PointTarget target(latlng_rand.ToPoint());
+
+    S2LatLng rsc_one = S2LatLng::FromDegrees(25.0, 26.0);
+    S2LatLng rsc_two = S2LatLng::FromDegrees(36.0, 26.0); 
+    S2LatLng rsc_three = S2LatLng::FromDegrees(34.0, 23.0);
+    std::vector<S2Point> rsc_vec;
+    rsc_vec.reserve(3);
+    rsc_vec.push_back(rsc_one.ToPoint());
+    rsc_vec.push_back(rsc_two.ToPoint());
+    rsc_vec.push_back(rsc_three.ToPoint());
+    const S2Loop region_loop(rsc_vec);
+    query.mutable_options()->set_region(&region_loop);// 区域限制
+    std::vector<S2ClosestPointQuery<std::string>::Result> result_vec;
+    query.FindClosestPoints(&target, &result_vec);
+    if (result_vec.empty()) {
+        std::cout << "not find close points\n";
+        return 0;
+    }
+    for (size_t i = 0; i < result_vec.size(); ++i) {
+        std::cout << "point data " << result_vec[i].data()
+                  << " dist: " << result_vec[i].distance() << std::endl;
+    }
+    return 0;
+}
+```
+
+### 查询某个坐标点属于哪一块区域
+先建立一个全量区域的索引MutableS2ShapeIndex对象, 而后利用与之相关的S2ContainsPointQuery查询包含point的区域集合
+```
+#include <iostream>
+#include <vector>
+
+#include "s2/s2latlng.h"
+#include "s2/s2loop.h"
+#include "s2/mutable_s2shape_index.h"
+#include "s2/s2contains_point_query.h"
+
+
+int main(int argc, int argv) {
+    S2LatLng latlng_one = S2LatLng::FromDegrees(10.0, 10.0);
+    S2LatLng latlng_two = S2LatLng::FromDegrees(20.0, 20.0); 
+    S2LatLng latlng_three = S2LatLng::FromDegrees(15.0, 11.0);
+    std::vector<S2Point> point_vec;
+    point_vec.push_back(latlng_one.ToPoint());
+    point_vec.push_back(latlng_two.ToPoint());
+    point_vec.push_back(latlng_three.ToPoint());
+    const S2Loop region_loop_one(point_vec);
+    point_vec.clear();
+    S2LatLng rsc_one = S2LatLng::FromDegrees(25.0, 26.0);
+    S2LatLng rsc_two = S2LatLng::FromDegrees(36.0, 26.0); 
+    S2LatLng rsc_three = S2LatLng::FromDegrees(34.0, 23.0);
+    point_vec.push_back(rsc_one.ToPoint());
+    point_vec.push_back(rsc_two.ToPoint());
+    point_vec.push_back(rsc_three.ToPoint());
+    const S2Loop region_loop_two(point_vec);
+    MutableS2ShapeIndex index;
+    index.Add(std::make_unique<S2Loop::Shape>(&region_loop_one));
+    index.Add(std::make_unique<S2Loop::Shape>(&region_loop_two));
+    S2ContainsPointQuery<MutableS2ShapeIndex> query(&index);
+    S2LatLng latlng_rand = S2LatLng::FromDegrees(15, 14);
+    std::vector<S2Shape*> result_vec = query.GetContainingShapes(latlng_rand.ToPoint());
+    if (result_vec.empty()) {
+        std::cout << "not get contained shape\n";
+    } else {
+        for (size_t i = 0; i < result_vec.size(); ++i) {
+            std::cout << "shape id: " << result_vec[i]->id() << std::endl;
+        }
+    }
+    return 0;
+}
+```
+以上就是基本常见的地理信息操作了，关于更多更详细的操作，可以去看[源码](https://github.com/google/s2geometry)，
+源码里的解释已经非常的详细了
+
+**参考文档及链接**
+1. [高效的多维空间点索引算法 — Geohash 和 Google S2](https://halfrost.com/go_spatial_search/)
+2. [google s2geometry develop guide](http://s2geometry.io/devguide/)
