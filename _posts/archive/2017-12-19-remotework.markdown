@@ -17,6 +17,10 @@ redhat/centos系
 ```
 sudo yum install rsync ssh inotify-tools -y
 ```
+mac环境使用fswatch来监控文件目录的变化，安装fswatch
+```
+brew install fswatch
+```
 
 ## ssh 配置
 
@@ -80,7 +84,10 @@ rsync -avz $REMOTE ./
 
 # loop to rsync to remote
 while true;do
+    # linux环境使用inotifywait
     inotifywait inotifywait -r -e modify,attrib,close_write,move,create,delete $LOCAL
+    # mac环境使用fswatch
+    # fswatch -1 $LOCAL
     rsync -avz $LOCAL $REMOTE
 done
 
